@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code Config Validator, check hooks and agent/SKILL.md frontmatter</title>
+<meta name="description" content="Paste your Claude Code settings.json hooks block or an agent/SKILL.md frontmatter block and get a green/red schema check with the exact known failure modes flagged and a corrected block. Nothing leaves your browser.">
+<style>
+  :root{
+    --bg:#0f172a; --surface:#1e293b; --surface2:#243349; --line:#334155;
+    --text:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8;
+    --green:#22c55e; --red:#ef4444; --orange:#f59e0b;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.55;}
+  .wrap{max-width:900px;margin:0 auto;padding:28px 18px 72px;}
+  h1{font-size:1.6rem;margin:0 0 2px;letter-spacing:-.02em;}
+  h2{font-size:1.1rem;margin:0 0 10px;}
+  h3{font-size:.95rem;margin:0 0 6px;}
+  .tagline{color:var(--muted);margin:0 0 20px;font-size:.98rem;}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0;}
+  label{display:block;font-size:.86rem;color:var(--muted);margin:0 0 6px;}
+  .field{margin:0 0 12px;}
+  textarea, input[type=text], input[type=number], select, code, pre, .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;}
+  textarea, input[type=text], input[type=number], select{width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:10px 12px;font-size:.88rem;resize:vertical;line-height:1.5;}
+  textarea:focus, input:focus, select:focus{outline:2px solid var(--accent);outline-offset:1px;}
+  .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0;}
+  .btn{background:var(--surface2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 16px;cursor:pointer;font-size:.9rem;}
+  .btn:hover{border-color:var(--accent);}
+  .btn-primary{background:var(--accent);color:#0f172a;border-color:var(--accent);font-weight:700;}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .muted{color:var(--muted);font-size:.85rem;}
+  a{color:var(--accent);}
+  .alert{background:rgba(239,68,68,.12);border:1px solid var(--red);color:#fecaca;border-radius:8px;padding:12px 16px;margin:14px 0;font-size:.9rem;}
+  .alert h3{color:#fecaca;margin:0 0 6px;}
+  .status{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:.95rem;padding:8px 12px;border-radius:8px;margin:0 0 10px;}
+  .status.good{background:rgba(34,197,94,.14);color:var(--green);}
+  .status.bad{background:rgba(239,68,68,.14);color:#fca5a5;}
+  .status.warn{background:rgba(245,158,11,.14);color:var(--orange);}
+  .hint{color:var(--muted);font-size:.9rem;padding:10px 2px;}
+  .findlist{list-style:none;margin:10px 0 0;padding:0;}
+  .findlist li{margin:0 0 10px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface2);font-size:.86rem;}
+  .findlist li.error{border-color:rgba(239,68,68,.5);}
+  .findlist li.warn{border-color:rgba(245,158,11,.5);}
+  .findlist li.info{border-color:var(--line);}
+  .tag{display:inline-block;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:1px 7px;border-radius:999px;margin-right:8px;}
+  .tag.error{background:rgba(239,68,68,.18);color:#fca5a5;}
+  .tag.warn{background:rgba(245,158,11,.18);color:var(--orange);}
+  .tag.info{background:var(--surface);color:var(--muted);}
+  .fpath{color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.78rem;}
+  .issue-link{margin-left:6px;font-size:.78rem;white-space:nowrap;}
+  pre.block{background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;font-size:.8rem;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:8px 0 0;}
+  .segmented{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:0 0 14px;}
+  .segmented button{background:var(--surface2);border:none;color:var(--muted);padding:8px 16px;cursor:pointer;font-size:.86rem;border-right:1px solid var(--line);}
+  .segmented button:last-child{border-right:none;}
+  .segmented button.active{background:var(--accent);color:#0f172a;font-weight:700;}
+  .tabbar{display:flex;gap:10px;margin:0 0 18px;flex-wrap:wrap;}
+  .tabbtn{background:var(--surface);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:12px 18px;cursor:pointer;font-size:.95rem;font-weight:600;flex:1;min-width:200px;text-align:left;}
+  .tabbtn.active{border-color:var(--accent);background:var(--surface2);}
+  .tabbtn .sub{display:block;font-weight:400;color:var(--muted);font-size:.8rem;margin-top:3px;}
+  .tabpanel{display:none;}
+  .tabpanel.active{display:block;}
+  .subview{display:none;}
+  .subview.active{display:block;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media (max-width:640px){ .grid2{grid-template-columns:1fr;} }
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:.84rem;}
+  td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;}
+  th{color:var(--muted);font-size:.72rem;text-transform:uppercase;}
+  .how{color:var(--muted);font-size:.86rem;margin-top:30px;border-top:1px solid var(--line);padding-top:16px;}
+  .how h2{color:var(--text);}
+  .how ul{padding-left:20px;}
+  .how li{margin:5px 0;}
+  .how code{background:var(--surface2);padding:1px 5px;border-radius:4px;}
+  .privacy{margin-top:14px;font-size:.86rem;color:var(--muted);}
+  footer{margin-top:26px;font-size:.84rem;color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Claude Code Config Validator</h1>
+  <p class="tagline">Paste a settings.json hooks block or an agent/SKILL.md frontmatter block. It checks the shape against the documented schema, flags the specific failure modes reported in real Claude Code GitHub issues, and can generate a valid stub in reverse. Nothing you paste ever leaves this page.</p>
+
+  <div class="tabbar">
+    <button class="tabbtn active" id="tab-hooks-btn" type="button">Hooks validator<span class="sub">settings.json "hooks" block</span></button>
+    <button class="tabbtn" id="tab-frontmatter-btn" type="button">Frontmatter validator<span class="sub">agent .md or SKILL.md YAML frontmatter</span></button>
+  </div>
+
+  <!-- ============================== HOOKS TAB ============================== -->
+  <div class="tabpanel active" id="tab-hooks">
+
+    <div class="segmented" role="group" aria-label="Hooks mode">
+      <button id="hooks-mode-validate" class="active" type="button">Validate</button>
+      <button id="hooks-mode-generate" type="button">Generate a stub</button>
+    </div>
+
+    <!-- Validate sub-view -->
+    <div class="subview active" id="hooks-validate-view">
+      <section class="card">
+        <div class="field">
+          <label for="hooks-input">Paste a full settings.json, or just the hooks object</label>
+          <textarea id="hooks-input" rows="16" placeholder='{"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "./check.sh"}]}]}}'></textarea>
+        </div>
+        <div class="actions">
+          <button id="hooks-load-broken" class="btn btn-primary" type="button">Load broken example</button>
+          <button id="hooks-load-good" class="btn" type="button">Load valid example</button>
+          <button id="hooks-clear" class="btn" type="button">Clear</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Result</h2>
+        <div id="hooks-result-body">
+          <p class="hint">Paste a hooks block above, or click Load broken example, to see it checked here.</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Which hooks fire for tool X?</h2>
+        <p class="muted">Applies to the events that match on tool name: PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, PermissionDenied.</p>
+        <div class="field">
+          <label for="hooks-tool-name">Tool name</label>
+          <input id="hooks-tool-name" type="text" placeholder="Bash">
+        </div>
+        <div id="hooks-preview-body"><p class="hint">Paste a hooks block above first, then type a tool name to see which matcher groups would fire.</p></div>
+      </section>
+    </div>
+
+    <!-- Generate sub-view -->
+    <div class="subview" id="hooks-generate-view">
+      <section class="card">
+        <div class="grid2">
+          <div class="field">
+            <label for="gen-event">Hook event</label>
+            <select id="gen-event">
+              <option>PreToolUse</option>
+              <option>PostToolUse</option>
+              <option>PostToolUseFailure</option>
+              <option>Notification</option>
+              <option>SubagentStart</option>
+              <option>SubagentStop</option>
+              <option>Stop</option>
+              <option>UserPromptSubmit</option>
+              <option>SessionStart</option>
+              <option>SessionEnd</option>
+              <option>PreCompact</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="gen-matcher">Matcher (leave blank for match-all; ignored for events with no matcher support)</label>
+            <input id="gen-matcher" type="text" placeholder="Bash">
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="field">
+            <label for="gen-type">Handler type</label>
+            <select id="gen-type">
+              <option value="command">command</option>
+              <option value="http">http</option>
+              <option value="mcp_tool">mcp_tool</option>
+              <option value="prompt">prompt</option>
+              <option value="agent">agent</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="gen-timeout">Timeout in seconds (optional)</label>
+            <input id="gen-timeout" type="number" placeholder="30">
+          </div>
+        </div>
+        <div class="field" id="gen-field-command">
+          <label for="gen-command">Command</label>
+          <input id="gen-command" type="text" placeholder="./scripts/check.sh">
+        </div>
+        <div class="field" id="gen-field-url" style="display:none">
+          <label for="gen-url">URL</label>
+          <input id="gen-url" type="text" placeholder="https://example.com/hook">
+        </div>
+        <div class="field" id="gen-field-mcp" style="display:none">
+          <div class="grid2">
+            <div><label for="gen-server">MCP server name</label><input id="gen-server" type="text" placeholder="my_server"></div>
+            <div><label for="gen-tool">MCP tool name</label><input id="gen-tool" type="text" placeholder="my_tool"></div>
+          </div>
+        </div>
+        <div class="field" id="gen-field-prompt" style="display:none">
+          <label for="gen-prompt">Prompt</label>
+          <input id="gen-prompt" type="text" placeholder="Check whether this change is safe.">
+        </div>
+        <div class="actions">
+          <button id="gen-hooks-btn" class="btn btn-primary" type="button">Generate</button>
+          <button id="gen-hooks-copy" class="btn" type="button">Copy</button>
+        </div>
+        <pre class="block" id="gen-hooks-output"></pre>
+      </section>
+    </div>
+  </div>
+
+  <!-- ========================== FRONTMATTER TAB ========================== -->
+  <div class="tabpanel" id="tab-frontmatter">
+
+    <div class="segmented" role="group" aria-label="Frontmatter file type">
+      <button id="fm-type-agent" class="active" type="button">Agent (.claude/agents/*.md)</button>
+      <button id="fm-type-skill" type="button">Skill (SKILL.md)</button>
+    </div>
+    <div class="segmented" role="group" aria-label="Frontmatter mode">
+      <button id="fm-mode-validate" class="active" type="button">Validate</button>
+      <button id="fm-mode-generate" type="button">Generate a stub</button>
+    </div>
+
+    <!-- Validate sub-view -->
+    <div class="subview active" id="fm-validate-view">
+      <section class="card">
+        <div class="field">
+          <label for="fm-input">Paste the whole file (frontmatter plus body), or just the frontmatter block</label>
+          <textarea id="fm-input" rows="14" placeholder="---&#10;name: code-reviewer&#10;description: Reviews code for quality and best practices&#10;tools: Read, Grep, Glob&#10;model: sonnet&#10;---&#10;&#10;You are an expert code reviewer."></textarea>
+        </div>
+        <div class="actions">
+          <button id="fm-load-broken" class="btn btn-primary" type="button">Load broken example</button>
+          <button id="fm-load-good" class="btn" type="button">Load valid example</button>
+          <button id="fm-clear" class="btn" type="button">Clear</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Result</h2>
+        <div id="fm-result-body">
+          <p class="hint">Paste a frontmatter block above, or click Load broken example, to see it checked here.</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- Generate sub-view -->
+    <div class="subview" id="fm-generate-view">
+      <section class="card">
+        <div class="field"><label for="fmgen-name">Name</label><input id="fmgen-name" type="text" placeholder="code-reviewer"></div>
+        <div class="field"><label for="fmgen-description">Description</label><input id="fmgen-description" type="text" placeholder="Reviews code for quality and best practices. Use proactively after code changes."></div>
+        <div class="field" id="fmgen-field-tools"><label for="fmgen-tools">Tools (agent) / allowed-tools (skill), comma-separated, optional</label><input id="fmgen-tools" type="text" placeholder="Read, Grep, Glob, Bash"></div>
+        <div class="grid2">
+          <div class="field"><label for="fmgen-model">Model, optional</label>
+            <select id="fmgen-model">
+              <option value="">(omit, defaults to inherit)</option>
+              <option value="inherit">inherit</option>
+              <option value="haiku">haiku</option>
+              <option value="sonnet">sonnet</option>
+              <option value="opus">opus</option>
+            </select>
+          </div>
+          <div class="field" id="fmgen-field-dmi" style="display:none">
+            <label for="fmgen-dmi">disable-model-invocation (skill only)</label>
+            <select id="fmgen-dmi">
+              <option value="">false (default)</option>
+              <option value="true">true</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="fmgen-btn" class="btn btn-primary" type="button">Generate</button>
+          <button id="fmgen-copy" class="btn" type="button">Copy</button>
+        </div>
+        <pre class="block" id="fmgen-output"></pre>
+      </section>
+    </div>
+  </div>
+
+  <div class="how">
+    <h2>What it checks</h2>
+    <h3>Hooks (settings.json)</h3>
+    <ul>
+      <li>Event names are checked against the full documented list (PreToolUse, PostToolUse, Stop, and 26 others); an unrecognized name is usually a typo.</li>
+      <li>Each matcher group needs a nested <code>hooks</code> array. A flat shape with <code>command</code> directly on the matcher group, or a <code>matcher</code> given as an object instead of a string, is exactly the contradiction reported in <a href="https://github.com/anthropics/claude-code/issues/31187" target="_blank" rel="noopener">issue #31187</a>.</li>
+      <li>A matcher-less entry on Stop or Notification is schema-valid but matches a shape reported as silently failing to load in <a href="https://github.com/anthropics/claude-code/issues/11544" target="_blank" rel="noopener">issue #11544</a>.</li>
+      <li>Every hook handler needs a <code>type</code> (command, http, mcp_tool, prompt, or agent) and the fields that type requires (for example <code>command</code> for type "command").</li>
+      <li><code>timeout</code> must be a number of seconds, not a quoted string.</li>
+      <li>Common nested-field typos: <code>matcher</code> placed on the handler instead of the group, <code>Command</code>/<code>Type</code> instead of lowercase, <code>timeoutMs</code> instead of <code>timeout</code>.</li>
+    </ul>
+
+    <h3>Agent / SKILL.md frontmatter</h3>
+    <ul>
+      <li>Agent files require <code>name</code> and <code>description</code>. A missing <code>name</code> on an otherwise well-formatted file is the exact bug in <a href="https://github.com/anthropics/claude-code/issues/6377" target="_blank" rel="noopener">issue #6377</a>. SKILL.md files do not require <code>name</code> (it defaults to the directory name); <code>description</code> is recommended, not required.</li>
+      <li><code>name</code> must be a lowercase, hyphenated slug. A malformed name is a common reason custom agents are not discovered, as reported in <a href="https://github.com/anthropics/claude-code/issues/20931" target="_blank" rel="noopener">issue #20931</a>.</li>
+      <li><code>tools</code> / <code>allowed-tools</code> should be a comma-separated string or a YAML list.</li>
+      <li><code>model</code> is checked against opus, sonnet, haiku, inherit, or a full model id.</li>
+      <li>Fields outside this tool's known list get a soft warning, not a hard error, because Claude Code's own SKILL.md validator has shipped a bug rejecting valid extended fields it did not yet recognize (<a href="https://github.com/anthropics/claude-code/issues/25380" target="_blank" rel="noopener">issue #25380</a>).</li>
+      <li>The frontmatter parser is hand-written and covers the subset Claude Code frontmatter actually uses (key: value scalars, quoted strings, inline and block lists). It is not a general YAML parser; see the README for exactly what is and is not supported.</li>
+    </ul>
+
+    <p class="privacy">Everything on this page runs in your browser. Nothing you paste is uploaded, stored, or sent anywhere.</p>
+  </div>
+
+  <footer>
+    Free and open source, MIT licensed. <a href="https://github.com/bengodgart/claude-code-config-validator">Source on GitHub</a>.
+  </footer>
+
+</div>
+
+<script src="core.js"></script>
+<script>
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function issueLink(issue) {
+    if (!issue) return '';
+    return ' <a class="issue-link" href="' + ISSUE_URLS[issue] + '" target="_blank" rel="noopener">#' + issue + '</a>';
+  }
+
+  function renderFindings(findings) {
+    if (!findings.length) return '';
+    var html = '<ul class="findlist">';
+    findings.forEach(function (f) {
+      html += '<li class="' + f.level + '"><span class="tag ' + f.level + '">' + f.level + '</span>' +
+        '<span class="fpath">' + escapeHtml(f.path) + '</span>' + issueLink(f.issue) +
+        '<div style="margin-top:5px">' + escapeHtml(f.message) + '</div></li>';
+    });
+    html += '</ul>';
+    return html;
+  }
+
+  // ---------------------- Top-level tab switching ----------------------
+  var tabHooksBtn = document.getElementById('tab-hooks-btn');
+  var tabFrontmatterBtn = document.getElementById('tab-frontmatter-btn');
+  var tabHooks = document.getElementById('tab-hooks');
+  var tabFrontmatter = document.getElementById('tab-frontmatter');
+
+  tabHooksBtn.addEventListener('click', function () {
+    tabHooksBtn.classList.add('active'); tabFrontmatterBtn.classList.remove('active');
+    tabHooks.classList.add('active'); tabFrontmatter.classList.remove('active');
+  });
+  tabFrontmatterBtn.addEventListener('click', function () {
+    tabFrontmatterBtn.classList.add('active'); tabHooksBtn.classList.remove('active');
+    tabFrontmatter.classList.add('active'); tabHooks.classList.remove('active');
+  });
+
+  // ============================== HOOKS TAB ==============================
+  var hooksModeValidateBtn = document.getElementById('hooks-mode-validate');
+  var hooksModeGenerateBtn = document.getElementById('hooks-mode-generate');
+  var hooksValidateView = document.getElementById('hooks-validate-view');
+  var hooksGenerateView = document.getElementById('hooks-generate-view');
+  hooksModeValidateBtn.addEventListener('click', function () {
+    hooksModeValidateBtn.classList.add('active'); hooksModeGenerateBtn.classList.remove('active');
+    hooksValidateView.classList.add('active'); hooksGenerateView.classList.remove('active');
+  });
+  hooksModeGenerateBtn.addEventListener('click', function () {
+    hooksModeGenerateBtn.classList.add('active'); hooksModeValidateBtn.classList.remove('active');
+    hooksGenerateView.classList.add('active'); hooksValidateView.classList.remove('active');
+  });
+
+  var hooksInput = document.getElementById('hooks-input');
+  var hooksResultBody = document.getElementById('hooks-result-body');
+  var hooksToolName = document.getElementById('hooks-tool-name');
+  var hooksPreviewBody = document.getElementById('hooks-preview-body');
+  var lastHooksMap = null;
+
+  function renderHooks() {
+    var text = hooksInput.value;
+    if (!text.trim()) {
+      hooksResultBody.innerHTML = '<p class="hint">Paste a hooks block above, or click Load broken example, to see it checked here.</p>';
+      lastHooksMap = null;
+      renderPreview();
+      return;
+    }
+    var result = validateHooksConfig(text);
+    lastHooksMap = result.hooksMap;
+    var errorCount = result.findings.filter(function (f) { return f.level === 'error'; }).length;
+    var warnCount = result.findings.filter(function (f) { return f.level === 'warn'; }).length;
+    var html = '';
+    if (result.ok) {
+      html += '<div class="status good">Valid. No schema errors found' + (warnCount ? ' (' + warnCount + ' advisory ' + (warnCount === 1 ? 'note' : 'notes') + ' below).' : '.') + '</div>';
+    } else {
+      html += '<div class="status bad">' + errorCount + ' schema ' + (errorCount === 1 ? 'error' : 'errors') + ' found' + (warnCount ? ', plus ' + warnCount + ' advisory ' + (warnCount === 1 ? 'note' : 'notes') : '') + '.</div>';
+    }
+    html += renderFindings(result.findings);
+    hooksResultBody.innerHTML = html;
+    renderPreview();
+  }
+
+  function renderPreview() {
+    var tool = hooksToolName.value.trim();
+    if (!lastHooksMap || !tool) {
+      hooksPreviewBody.innerHTML = '<p class="hint">Paste a hooks block above first, then type a tool name to see which matcher groups would fire.</p>';
+      return;
+    }
+    var rows = previewToolFire(lastHooksMap, tool);
+    if (!rows.length) {
+      hooksPreviewBody.innerHTML = '<p class="hint">No PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, or PermissionDenied entries were found in this config.</p>';
+      return;
+    }
+    var html = '<table><thead><tr><th>Event</th><th>Matcher</th><th>Result</th><th>Handlers</th></tr></thead><tbody>';
+    rows.forEach(function (r) {
+      html += '<tr><td>' + escapeHtml(r.event) + '[' + r.index + ']</td>' +
+        '<td>' + (r.matcher === null ? '<span class="muted">(none, matches all)</span>' : escapeHtml(r.matcher)) + '</td>' +
+        '<td>' + (r.fires ? '<span class="tag" style="background:rgba(34,197,94,.18);color:#22c55e">fires</span>' : '<span class="tag" style="background:var(--surface);color:var(--muted)">does not fire</span>') + '</td>' +
+        '<td>' + r.handlerCount + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    hooksPreviewBody.innerHTML = html;
+  }
+
+  document.getElementById('hooks-load-broken').addEventListener('click', function () {
+    hooksInput.value = EXAMPLE_HOOKS_BROKEN_TEXT;
+    renderHooks();
+  });
+  document.getElementById('hooks-load-good').addEventListener('click', function () {
+    hooksInput.value = EXAMPLE_HOOKS_GOOD_TEXT;
+    renderHooks();
+  });
+  document.getElementById('hooks-clear').addEventListener('click', function () {
+    hooksInput.value = '';
+    renderHooks();
+  });
+  hooksInput.addEventListener('input', renderHooks);
+  hooksToolName.addEventListener('input', renderPreview);
+
+  // ---- Hooks generate sub-view ----
+  var genEvent = document.getElementById('gen-event');
+  var genMatcher = document.getElementById('gen-matcher');
+  var genType = document.getElementById('gen-type');
+  var genTimeout = document.getElementById('gen-timeout');
+  var genCommand = document.getElementById('gen-command');
+  var genUrl = document.getElementById('gen-url');
+  var genServer = document.getElementById('gen-server');
+  var genTool = document.getElementById('gen-tool');
+  var genPrompt = document.getElementById('gen-prompt');
+  var genOutput = document.getElementById('gen-hooks-output');
+
+  function updateGenFields() {
+    document.getElementById('gen-field-command').style.display = genType.value === 'command' ? '' : 'none';
+    document.getElementById('gen-field-url').style.display = genType.value === 'http' ? '' : 'none';
+    document.getElementById('gen-field-mcp').style.display = genType.value === 'mcp_tool' ? '' : 'none';
+    document.getElementById('gen-field-prompt').style.display = (genType.value === 'prompt' || genType.value === 'agent') ? '' : 'none';
+  }
+  genType.addEventListener('change', updateGenFields);
+  updateGenFields();
+
+  document.getElementById('gen-hooks-btn').addEventListener('click', function () {
+    var stub = generateHooksStub({
+      event: genEvent.value,
+      matcher: genMatcher.value,
+      type: genType.value,
+      command: genCommand.value,
+      url: genUrl.value,
+      server: genServer.value,
+      tool: genTool.value,
+      prompt: genPrompt.value,
+      timeout: genTimeout.value,
+    });
+    genOutput.textContent = stub;
+  });
+  document.getElementById('gen-hooks-copy').addEventListener('click', function () {
+    if (genOutput.textContent && navigator.clipboard) navigator.clipboard.writeText(genOutput.textContent);
+  });
+
+  // ========================== FRONTMATTER TAB ==========================
+  var fmTypeAgentBtn = document.getElementById('fm-type-agent');
+  var fmTypeSkillBtn = document.getElementById('fm-type-skill');
+  var fmMode = 'agent';
+  fmTypeAgentBtn.addEventListener('click', function () {
+    fmMode = 'agent';
+    fmTypeAgentBtn.classList.add('active'); fmTypeSkillBtn.classList.remove('active');
+    renderFrontmatter();
+  });
+  fmTypeSkillBtn.addEventListener('click', function () {
+    fmMode = 'skill';
+    fmTypeSkillBtn.classList.add('active'); fmTypeAgentBtn.classList.remove('active');
+    renderFrontmatter();
+  });
+
+  var fmModeValidateBtn = document.getElementById('fm-mode-validate');
+  var fmModeGenerateBtn = document.getElementById('fm-mode-generate');
+  var fmValidateView = document.getElementById('fm-validate-view');
+  var fmGenerateView = document.getElementById('fm-generate-view');
+  fmModeValidateBtn.addEventListener('click', function () {
+    fmModeValidateBtn.classList.add('active'); fmModeGenerateBtn.classList.remove('active');
+    fmValidateView.classList.add('active'); fmGenerateView.classList.remove('active');
+  });
+  fmModeGenerateBtn.addEventListener('click', function () {
+    fmModeGenerateBtn.classList.add('active'); fmModeValidateBtn.classList.remove('active');
+    fmGenerateView.classList.add('active'); fmValidateView.classList.remove('active');
+  });
+
+  var fmInput = document.getElementById('fm-input');
+  var fmResultBody = document.getElementById('fm-result-body');
+
+  function renderFrontmatter() {
+    var text = fmInput.value;
+    if (!text.trim()) {
+      fmResultBody.innerHTML = '<p class="hint">Paste a frontmatter block above, or click Load broken example, to see it checked here.</p>';
+      return;
+    }
+    var result = validateFrontmatter(text, fmMode);
+    var errorCount = result.findings.filter(function (f) { return f.level === 'error'; }).length;
+    var warnCount = result.findings.filter(function (f) { return f.level === 'warn'; }).length;
+    var html = '';
+    if (result.ok) {
+      html += '<div class="status good">Valid against the ' + fmMode + ' schema' + (warnCount ? ' (' + warnCount + ' advisory ' + (warnCount === 1 ? 'note' : 'notes') + ' below).' : '.') + '</div>';
+    } else {
+      html += '<div class="status bad">' + errorCount + ' schema ' + (errorCount === 1 ? 'error' : 'errors') + ' found' + (warnCount ? ', plus ' + warnCount + ' advisory ' + (warnCount === 1 ? 'note' : 'notes') : '') + '.</div>';
+    }
+    html += renderFindings(result.findings);
+    if (result.frontmatter) {
+      var corrected = buildCorrectedFrontmatter(result.frontmatter, fmMode);
+      html += '<h3 style="margin-top:16px">Corrected frontmatter block</h3>' +
+        '<p class="muted">Mechanical fixes only (slug formatting, model casing, boolean coercion). Placeholders in angle brackets need your own words; nothing is invented for you.</p>' +
+        '<pre class="block">' + escapeHtml(corrected) + '</pre>';
+    }
+    fmResultBody.innerHTML = html;
+  }
+
+  document.getElementById('fm-load-broken').addEventListener('click', function () {
+    fmInput.value = fmMode === 'skill' ? EXAMPLE_FRONTMATTER_SKILL_BROKEN_TEXT : EXAMPLE_FRONTMATTER_AGENT_BROKEN_TEXT;
+    renderFrontmatter();
+  });
+  document.getElementById('fm-load-good').addEventListener('click', function () {
+    fmInput.value = fmMode === 'skill' ? EXAMPLE_FRONTMATTER_SKILL_GOOD_TEXT : EXAMPLE_FRONTMATTER_AGENT_GOOD_TEXT;
+    renderFrontmatter();
+  });
+  document.getElementById('fm-clear').addEventListener('click', function () {
+    fmInput.value = '';
+    renderFrontmatter();
+  });
+  fmInput.addEventListener('input', renderFrontmatter);
+
+  // ---- Frontmatter generate sub-view ----
+  var fmgenName = document.getElementById('fmgen-name');
+  var fmgenDescription = document.getElementById('fmgen-description');
+  var fmgenTools = document.getElementById('fmgen-tools');
+  var fmgenModel = document.getElementById('fmgen-model');
+  var fmgenDmi = document.getElementById('fmgen-dmi');
+  var fmgenOutput = document.getElementById('fmgen-output');
+
+  function updateFmGenFields() {
+    document.getElementById('fmgen-field-dmi').style.display = fmMode === 'skill' ? '' : 'none';
+  }
+  [fmTypeAgentBtn, fmTypeSkillBtn].forEach(function (b) { b.addEventListener('click', updateFmGenFields); });
+  updateFmGenFields();
+
+  document.getElementById('fmgen-btn').addEventListener('click', function () {
+    var stub = generateFrontmatterStub({
+      mode: fmMode,
+      name: fmgenName.value,
+      description: fmgenDescription.value,
+      tools: fmgenTools.value,
+      allowedTools: fmgenTools.value,
+      model: fmgenModel.value,
+      disableModelInvocation: fmgenDmi.value === 'true',
+    });
+    fmgenOutput.textContent = stub;
+  });
+  document.getElementById('fmgen-copy').addEventListener('click', function () {
+    if (fmgenOutput.textContent && navigator.clipboard) navigator.clipboard.writeText(fmgenOutput.textContent);
+  });
+
+  renderHooks();
+  renderFrontmatter();
+</script>
+</body>
+</html>
