@@ -4,7 +4,7 @@ title: Run claude-code-config-validator locally
 description: 'How to open claude-code-config-validator and run its tests on a dev machine.'
 generated:
   by: claude-opus-5
-  at: '2026-07-29T04:00:00+00:00'
+  at: '2026-07-29T04:24:12+00:00'
 status: stable
 ---
 
